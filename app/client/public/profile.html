@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - QA Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <nav class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+        <h1 class="text-xl font-bold text-slate-900">QA Demo Shop</h1>
+        <div class="flex gap-4">
+            <a href="/shop.html" class="text-slate-600 hover:text-slate-900">Shop</a>
+            <a href="/help.html" class="text-slate-600 hover:text-slate-900">Help</a>
+            <a href="/login.html" class="text-slate-600 hover:text-slate-900">Logout</a>
+        </div>
+    </nav>
+
+    <main class="max-w-2xl mx-auto p-6" data-testid="profile-page">
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            <h1 class="text-2xl font-bold text-slate-900 mb-8">User Profile</h1>
+            
+            <div class="space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <label class="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Username</label>
+                    <div class="text-lg font-semibold text-slate-900" data-testid="profile-username" id="username-display">Loading...</div>
+                </div>
+                
+                <div class="border-b border-slate-100 pb-4">
+                    <label class="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Email Address</label>
+                    <div class="text-lg font-semibold text-slate-900" data-testid="profile-email">user@example.com</div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Account Role</label>
+                    <div class="text-lg font-semibold text-slate-900" data-testid="profile-role">CUSTOMER</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const user = localStorage.getItem('user');
+        if (!user) {
+            window.location.href = '/login.html';
+        } else {
+            document.getElementById('username-display').innerText = user;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+I ONLY want to make the following two changes:
+
+Add a basket icon with item count to the main navigation
+
+Add a forgot password page reachable from the login screen
+
+Do not refactor or modify any existing logic beyond what is explicitly described.
+
+1️⃣ Basket icon in main navigation
+
+Purpose:
+
+Allow users (and QA) to quickly see basket contents from any main page
+
+Requirements:
+
+Add a basket icon (text icon is fine, e.g. 🛒) to the existing top navigation
+
+Icon must be visible on all pages except login.html
+
+Icon must display:
+
+Current number of items in the basket
+
+Clicking the icon navigates to /basket.html
+
+Behavior:
+
+Basket count updates dynamically when items are added or cleared
+
+Use existing in-memory basket state
+
+Testing requirements:
+
+Basket icon container: data-testid="nav-basket"
+
+Basket count element: data-testid="nav-basket-count"
+
+Do NOT:
+
+Add dropdowns
+
+Add editing capabilities
+
+Change existing basket behavior
+
+2️⃣ Forgot password page (/forgot-password.html)
+
+Purpose:
+
+Simple, non-functional password recovery page for QA navigation testing
+
+Requirements:
+
+Create public/forgot-password.html
+
+Page must be accessible via /forgot-password.html
+
+Page content:
+
+Title: “Forgot password”
+
+Email input field
+
+Button: “Send reset link”
+
+No real password reset logic
+
+On submit:
+
+Display static confirmation text:
+“If this email exists, a reset link has been sent.”
+
+Testing requirements:
+
+Root container: data-testid="forgot-password-page"
+
+Email input: data-testid="forgot-password-email"
+
+Submit button: data-testid="forgot-password-submit"
+
+Confirmation text: data-testid="forgot-password-confirmation"
+
+3️⃣ Login page update (minimal)
+
+Add a link on login.html:
+
+Text: “Forgot password?”
+
+Navigates to /forgot-password.html
+
+Do not change existing login behavior
+
+Non-goals (strict)
+
+Do NOT implement real password recovery
+
+Do NOT change authentication logic
+
+Do NOT introduce new APIs or databases
+
+Do NOT change styling or layout beyond adding the link/icon
+
+This app is used for QA automation demos, so deterministic HTML structure and stable data-testid attributes are required.

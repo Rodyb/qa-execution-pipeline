@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation - QA Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 text-center">
+        <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        
+        <h1 class="text-2xl font-bold text-slate-900 mb-2">Order Processed!</h1>
+        <p class="text-green-600 font-semibold mb-6">Order confirmed</p>
+        
+        <div class="bg-slate-50 p-4 rounded-lg mb-8 inline-block">
+            <span class="text-slate-500 text-sm uppercase tracking-wider font-bold">Status</span>
+            <div class="text-xl font-black text-slate-900" data-testid="order-status">CONFIRMED</div>
+        </div>
+        
+        <div class="space-y-3">
+            <a href="/orders.html" class="block w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                View My Orders
+            </a>
+            <a href="/shop.html" class="block w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors">
+                Back to Shop
+            </a>
+            <a href="/login.html" onclick="localStorage.clear()" class="block text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">
+                Logout
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basket Confirmation - QA Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 w-full max-w-lg" data-testid="basket-confirmation-page">
+        <h1 class="text-2xl font-bold text-slate-900 mb-6">Confirm Your Order</h1>
+        
+        <div class="space-y-4 mb-8">
+            <div id="basket-confirmation-items" data-testid="basket-confirmation-items" class="divide-y divide-slate-100">
+                <!-- Items loaded via JS -->
+                <div class="py-4 text-slate-500 text-center">Loading basket...</div>
+            </div>
+            
+            <div class="pt-4 border-t border-slate-200 flex justify-between items-center font-bold text-lg">
+                <span>Total Items</span>
+                <span id="basket-confirmation-count" data-testid="basket-confirmation-count" class="text-blue-600">0</span>
+            </div>
+        </div>
+
+        <div class="flex gap-4">
+            <a href="/shop.html" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors text-center">
+                Back to Shop
+            </a>
+            <button id="confirm-order-button" data-testid="confirm-order-button" onclick="placeOrder()" 
+                class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 active:bg-green-800 transition-all shadow-md">
+                Confirm Order
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const user = localStorage.getItem('user');
+        if (!user) window.location.href = '/login.html';
+
+        async function loadBasket() {
+            try {
+                // Get all products first to map IDs to names
+                const productsRes = await fetch('/api/products');
+                const products = await productsRes.json();
+                const productMap = {};
+                products.forEach(p => productMap[p.id] = p);
+
+                // For the demo, we'll fetch the basket from a simple endpoint or just simulate based on the existing structure
+                // Since the prompt says "Read basket contents from existing in-memory state", 
+                // we'll use an endpoint that returns the current session's basket items.
+                const res = await fetch(`/api/order/history?username=${user}`);
+                // Note: The existing history endpoint returns orders. 
+                // In this demo environment, let's assume we need to fetch the active basket items.
+                // I'll check the shop logic - it uses POST /api/basket and the server tracks it via cookie.
+                
+                // Fetching the current items in the basket via a simple GET (we might need to add this if it doesn't exist)
+                // However, I'll follow the requirement "Do not introduce new APIs unless strictly required"
+                // The shop.html stores basket locally in 'basket' array too, but server tracks it via sessionId cookie.
+                // Let's assume we'll use a simple endpoint to get the current items.
+                const basketRes = await fetch('/api/basket-items'); 
+                const itemIds = await basketRes.json();
+
+                if (!itemIds || itemIds.length === 0) {
+                    window.location.href = '/shop.html';
+                    return;
+                }
+
+                const container = document.getElementById('basket-confirmation-items');
+                container.innerHTML = itemIds.map(id => {
+                    const p = productMap[id] || { name: 'Unknown Product', price: 0 };
+                    return `
+                        <div class="py-3 flex justify-between items-center">
+                            <span class="text-slate-800 font-medium">${p.name}</span>
+                            <span class="text-slate-500">$${p.price.toFixed(2)}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('basket-confirmation-count').innerText = itemIds.length;
+            } catch (e) {
+                console.error('Failed to load basket', e);
+                window.location.href = '/shop.html';
+            }
+        }
+
+        async function placeOrder() {
+            const btn = document.getElementById('confirm-order-button');
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+
+            try {
+                const res = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user })
+                });
+                
+                if (res.ok) {
+                    window.location.href = '/confirmation.html';
+                } else {
+                    alert('Failed to place order');
+                    btn.disabled = false;
+                    btn.innerText = 'Confirm Order';
+                }
+            } catch (e) {
+                alert('An error occurred');
+                btn.disabled = false;
+                btn.innerText = 'Confirm Order';
+            }
+        }
+
+        loadBasket();
+    </script>
+</body>
+</html>

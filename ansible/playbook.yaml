@@ -1,0 +1,206 @@
+---
+- name: Wait for SSH to become available
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+    - name: Ensure SSH port is open
+      wait_for:
+        port: 22
+        delay: 10
+        timeout: 100
+        search_regex: OpenSSH
+        host: "{{ (ansible_ssh_host | default(ansible_host)) | default(inventory_hostname) }}"
+
+- name: Install and verify Docker on Ubuntu
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - gnupg
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker engine
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: yes
+
+    - name: Start Docker daemon
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Verify Docker daemon is reachable
+      command: docker info
+      register: docker_info
+      changed_when: false
+
+    - name: Assert Docker is running
+      assert:
+        that:
+          - docker_info.rc == 0
+        fail_msg: "Docker daemon is not running or not reachable"
+
+- name: Configure docker user access
+  hosts: all
+  become: yes
+  tasks:
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Reset SSH connection to apply group membership
+      meta: reset_connection
+
+    - name: Verify ubuntu user can run docker
+      become: false
+      command: docker ps
+      register: docker_ps
+      changed_when: false
+
+    - name: Assert docker access for ubuntu user
+      assert:
+        that:
+          - docker_ps.rc == 0
+        fail_msg: "ubuntu user cannot run docker without sudo"
+
+- name: Create application user
+  hosts: all
+  become: yes
+  tasks:
+    - name: Create rodyb user
+      user:
+        name: rodyb
+        groups: docker
+
+    - name: Verify rodyb user exists
+      getent:
+        database: passwd
+        key: rodyb
+
+    - name: Assert rodyb user present
+      assert:
+        that:
+          - ansible_facts.getent_passwd['rodyb'] is defined
+        fail_msg: "User rodyb was not created successfully"
+
+- name: Install and verify Docker Compose v2
+  hosts: all
+  become: yes
+  tasks:
+    - name: Get system architecture
+      shell: uname -m
+      register: remote_arch
+      changed_when: false
+
+    - name: Create Docker CLI plugins directory
+      file:
+        path: /usr/local/lib/docker/cli-plugins
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Download Docker Compose plugin
+      get_url:
+        url: "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-{{ remote_arch.stdout }}"
+        dest: /usr/local/lib/docker/cli-plugins/docker-compose
+        mode: '0755'
+
+    - name: Verify Docker Compose installation
+      command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    - name: Assert Docker Compose installed
+      assert:
+        that:
+          - compose_version.rc == 0
+          - "'Docker Compose' in compose_version.stdout"
+        fail_msg: "Docker Compose is not installed or not functioning"
+
+- name: Prepare application files (environment readiness)
+  hosts: all
+  become: yes
+  vars_files:
+    - project-vars
+  tasks:
+    - name: Ensure app directory exists
+      file:
+        path: /home/ubuntu/app
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Sync application files 
+      synchronize:
+        src: "{{ playbook_dir }}/../app/"
+        dest: /home/ubuntu/app/
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=node_modules"
+          - "--exclude=dist"
+          - "--exclude=.DS_Store"
+        private_key: "{{ ansible_ssh_private_key_file | default(omit) }}"
+        use_ssh_args: true
+      delegate_to: localhost
+      become: false
+
+    - name: Verify docker-compose.yaml exists
+      stat:
+        path: /home/ubuntu/app/docker-compose.yaml
+      register: compose_file
+
+    - name: Assert docker-compose.yaml present
+      assert:
+        that:
+          - compose_file.stat.exists
+        fail_msg: "docker-compose.yaml missing,environment is not test-ready"
+
+    - name: Docker login
+      docker_login:
+        username: rodybothe2
+        password: "{{ docker_password }}"
+
+- name: Start application using defined execution
+  hosts: all
+  become: false
+  vars:
+    app_dir: /home/ubuntu/app
+  tasks:
+    - name: Start application via Docker Compose
+      command: docker compose up -d
+      args:
+        chdir: "{{ app_dir }}"
+      register: compose_up
+
+    - name: Assert application started
+      assert:
+        that:
+          - compose_up.rc == 0
+        fail_msg: "Application did not start — system did not start as defined"

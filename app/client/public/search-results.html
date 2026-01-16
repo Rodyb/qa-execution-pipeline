@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results - QA Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <nav class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+        <h1 class="text-xl font-bold text-slate-900">QA Demo Shop</h1>
+        <div class="flex gap-4">
+            <a href="/shop.html" class="text-slate-600 hover:text-slate-900">Shop</a>
+            <a href="/search.html" class="text-slate-600 hover:text-slate-900">Search</a>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-6" data-testid="search-results-page">
+        <h1 class="text-2xl font-bold text-slate-900 mb-2">Search results</h1>
+        <p class="text-slate-500 mb-8">Showing results for: <span class="font-bold text-slate-900" data-testid="search-term" id="search-term-display"></span></p>
+        
+        <div id="search-results" data-testid="search-results" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <!-- Results loaded via JS -->
+        </div>
+
+        <div id="search-no-results" data-testid="search-no-results" class="hidden text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+            <p class="text-slate-500 text-lg">No products found</p>
+        </div>
+    </main>
+
+    <script>
+        async function performSearch() {
+            const params = new URLSearchParams(window.location.search);
+            const query = params.get('q') || '';
+            document.getElementById('search-term-display').innerText = query;
+
+            try {
+                const res = await fetch('/api/products');
+                const products = await res.json();
+                
+                const filtered = products.filter(p => 
+                    p.name.toLowerCase().includes(query.toLowerCase())
+                );
+
+                const container = document.getElementById('search-results');
+                const noResults = document.getElementById('search-no-results');
+
+                if (filtered.length === 0) {
+                    container.innerHTML = '';
+                    noResults.classList.remove('hidden');
+                } else {
+                    noResults.classList.add('hidden');
+                    container.innerHTML = filtered.map(p => `
+                        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div class="w-full h-48 bg-slate-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                                <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover">
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 mb-1">${p.name}</h3>
+                            <p class="text-slate-500 mb-4">$${p.price.toFixed(2)}</p>
+                            <a href="/shop.html" class="block w-full text-center bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800 transition-colors">
+                                View in Shop
+                            </a>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        performSearch();
+    </script>
+</body>
+</html>
