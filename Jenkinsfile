@@ -29,6 +29,12 @@ pipeline {
             }
         }
         stage('Provision EC2 with Terraform') {
+            agent {
+                docker {
+                    image 'hashicorp/terraform:1.6'
+                    args '-v $HOME/.terraform.d:/root/.terraform.d'
+                }
+            }
             steps {
                 script {
                     dir("terraform/ec2") {
