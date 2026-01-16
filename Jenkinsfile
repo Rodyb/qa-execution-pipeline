@@ -96,7 +96,7 @@ pipeline {
                                 echo "$DOCKER_PASSWORD" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USERNAME" --password-stdin
 
                                 docker build -t ecommerce-app:${env.IMAGE_TAG} .
-                                docker tag ecommerce-app:${env.IMAGE_TAG} ${DOCKER_REGISTRY}/rodybothe2/app-fastapi:${env.IMAGE_TAG}
+                                docker tag ecommerce-app:${env.IMAGE_TAG} ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${env.IMAGE_TAG}
 
                                 docker push ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${env.IMAGE_TAG}
                             """
@@ -193,4 +193,4 @@ pipeline {
             echo "Pipeline failed"
         }
     }
-}
+// }
