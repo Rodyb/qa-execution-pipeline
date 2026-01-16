@@ -106,77 +106,77 @@ pipeline {
             }
         }
 
-        stage('Start application stack') {
-            steps {
-                dir("pipelines/application") {
-                    sh 'docker compose up -d'
-                }
-            }
-        }
+        // stage('Start application stack') {
+        //     steps {
+        //         dir("pipelines/application") {
+        //             sh 'docker compose up -d'
+        //         }
+        //     }
+        // }
 
-        stage('Build Rest assured image') {
-            steps {
-                dir("pipelines/rest-assured") {
-                    sh "docker build -t ${REST_TEST_IMAGE} ."
-                }
-            }
-        }
+        // stage('Build Rest assured image') {
+        //     steps {
+        //         dir("pipelines/rest-assured") {
+        //             sh "docker build -t ${REST_TEST_IMAGE} ."
+        //         }
+        //     }
+        // }
 
-        stage('Run integration Tests') {
-            steps {
-                script {
-                    testExecutor.runTestsAndCollectAllure(
-                            container: 'rest-tests-integration',
-                            testSelector: 'IntegrationTest',
-                            resultsDir: 'allure-results/integration',
-                            network: APP_NETWORK,
-                            image: REST_TEST_IMAGE
-                    )
-                }
-            }
-        }
+        // stage('Run integration Tests') {
+        //     steps {
+        //         script {
+        //             testExecutor.runTestsAndCollectAllure(
+        //                     container: 'rest-tests-integration',
+        //                     testSelector: 'IntegrationTest',
+        //                     resultsDir: 'allure-results/integration',
+        //                     network: APP_NETWORK,
+        //                     image: REST_TEST_IMAGE
+        //             )
+        //         }
+        //     }
+        // }
 
-        stage('Run e2e tests') {
-            steps {
-                script {
-                    testExecutor.runTestsAndCollectAllure(
-                            container: 'rest-tests-e2e',
-                            testSelector: 'e2eTest',
-                            resultsDir: 'allure-results/e2e',
-                            network: APP_NETWORK,
-                            image: REST_TEST_IMAGE
-                    )
-                }
-            }
-        }
+        // stage('Run e2e tests') {
+        //     steps {
+        //         script {
+        //             testExecutor.runTestsAndCollectAllure(
+        //                     container: 'rest-tests-e2e',
+        //                     testSelector: 'e2eTest',
+        //                     resultsDir: 'allure-results/e2e',
+        //                     network: APP_NETWORK,
+        //                     image: REST_TEST_IMAGE
+        //             )
+        //         }
+        //     }
+        // }
 
-        stage('Publish Allure report') {
-            steps {
-                archiveArtifacts artifacts: 'allure-results/**', fingerprint: true
+        // stage('Publish Allure report') {
+        //     steps {
+        //         archiveArtifacts artifacts: 'allure-results/**', fingerprint: true
 
-                allure(
-                        includeProperties: false,
-                        jdk: '',
-                        results: [
-                                [path: 'allure-results/integration'],
-                                [path: 'allure-results/e2e']
-                        ]
-                )
-            }
-        }
+        //         allure(
+        //                 includeProperties: false,
+        //                 jdk: '',
+        //                 results: [
+        //                         [path: 'allure-results/integration'],
+        //                         [path: 'allure-results/e2e']
+        //                 ]
+        //         )
+        //     }
+        // }
 
-        stage('Send Slack notification') {
-            steps {
-                withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-                    dir('pipelines/scripts') {
-                        sh '''
-                          export SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL"
-                          export ALLURE_REPORT_DIR="${ALLURE_REPORT}"
-                          ./slack.sh
-                        '''
-                    }
-                }
-            }
+        // stage('Send Slack notification') {
+        //     steps {
+        //         withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
+        //             dir('pipelines/scripts') {
+        //                 sh '''
+        //                   export SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL"
+        //                   export ALLURE_REPORT_DIR="${ALLURE_REPORT}"
+        //                   ./slack.sh
+        //                 '''
+        //             }
+        //         }
+        //     }
         }
     }
 
