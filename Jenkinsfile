@@ -160,7 +160,7 @@ pipeline {
         always {
             archiveArtifacts artifacts: 'allure-results/**, allure-report/**', fingerprint: true
 
-            dir("pipelines/application") {
+            dir("app") {
                 sh 'docker compose down -v || true'
             }
         }
