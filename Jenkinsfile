@@ -1,7 +1,7 @@
 def testExecutor
 
 pipeline {
-    agent any
+    agent { label 'master' }
 
     tools {
         allure 'allure'
