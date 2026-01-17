@@ -8,19 +8,19 @@ pipeline {
     }
 
     environment {
-        APP_NETWORK         = "app_default"
-        REST_TEST_IMAGE     = "app-rest-tests"
-        ALLURE_REPORT       = "${WORKSPACE}/allure-report"
+        APP_NETWORK     = "app_default"
+        REST_TEST_IMAGE = "app-rest-tests"
+        ALLURE_REPORT   = "${WORKSPACE}/allure-report"
 
         AWS_ACCESS_KEY_ID     = credentials('jenkins_aws_access_key_id')
         AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
         AWS_DEFAULT_REGION    = "eu-central-1"
 
         DOCKER_REGISTRY = "docker.io"
-
     }
 
     stages {
+
         stage('Initialise test executor') {
             steps {
                 script {
@@ -28,79 +28,88 @@ pipeline {
                 }
             }
         }
+
         stage('Preflight check') {
-    steps {
-        sh '''#!/bin/bash
-          set -e
+            steps {
+                sh '''#!/bin/bash
+                  set -e
 
-          echo "=== Preflight ==="
-          echo "User: $(whoami)"
-          echo "Node: $(hostname)"
-          echo "Workspace: $(pwd)"
+                  echo "=== Preflight ==="
+                  echo "User: $(whoami)"
+                  echo "Node: $(hostname)"
+                  echo "Workspace: $(pwd)"
 
-          command -v docker >/dev/null || {
-            echo "Docker CLI not found"; exit 1;
-          }
+                  command -v docker >/dev/null || {
+                    echo "Docker CLI not found"; exit 1;
+                  }
 
-          docker ps >/dev/null || {
-            echo "Docker not usable by this process"; exit 1;
-          }
+                  docker ps >/dev/null || {
+                    echo "Docker not usable by this process"; exit 1;
+                  }
 
-          command -v terraform >/dev/null || {
-            echo "Terraform not found"; exit 1;
-          }
+                  command -v terraform >/dev/null || {
+                    echo "Terraform not found"; exit 1;
+                  }
 
-          command -v ansible-playbook >/dev/null || {
-            echo "Ansible not found"; exit 1;
-          }
+                  command -v ansible-playbook >/dev/null || {
+                    echo "Ansible not found"; exit 1;
+                  }
 
-          echo "Preflight OK"
-        '''
-    }
-}
+                  echo "Preflight OK"
+                '''
+            }
+        }
 
         stage('Provision EC2 with Terraform') {
             steps {
-                script {
-                    dir("terraform/ec2") {
-                        echo "Provision EC2"
+                dir("terraform/ec2") {
+                    echo "Provision EC2"
 
-                        sh 'terraform init -upgrade'
+                    sh 'terraform init -upgrade'
 
-                        sh 'terraform destroy -auto-approve '
+                    // Demo choice: always reset infra
+                    sh 'terraform destroy -auto-approve || true'
+                    sh 'terraform apply -auto-approve'
 
-
-                        sh "terraform apply -auto-approve" 
-
-                        def appIp = sh(script: "terraform output -raw app_public_ip", returnStdout: true).trim()
-                        env.APP_IP = appIp
-
-                        echo "EC2 instances IP:"
-                        echo "EC2 IP ${appIp}"
+                    script {
+                        env.APP_IP = sh(
+                            script: "terraform output -raw app_public_ip",
+                            returnStdout: true
+                        ).trim()
                     }
+
+                    echo "EC2 IP: ${env.APP_IP}"
                 }
             }
         }
 
         stage('Configure EC2 with Ansible') {
             steps {
-                script {
-                    echo "Configure EC2"
-                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sshagent(['ansible-ssh-key-aws']) {
-                            echo "Running Ansible for ${env.APP_IP}"
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sshagent(['ansible-ssh-key-aws']) {
+                        sh '''
+                          echo "Waiting for SSH..."
+                          for i in {1..30}; do
+                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ubuntu@${APP_IP} "echo SSH ready"; then
+                              break
+                            fi
+                            sleep 5
+                          done
 
-                            sh """
-                                sleep 30
-                                ssh -o StrictHostKeyChecking=no ubuntu@${env.APP_IP} "echo Connected to ${env.APP_IP}"
+                          ansible-galaxy collection install -r ansible/requirements.yaml
 
-                                ansible-galaxy collection install -r ansible/requirements.yaml
+                          export DOCKER_PASSWORD
 
-                                ansible-playbook ansible/playbook.yaml \
-                                    -i '${env.APP_IP},' \
-                                    -e "ansible_host=${env.APP_IP} ansible_user=ubuntu docker_password=${DOCKER_PASSWORD}"
-                            """
-                        }
+                          ansible-playbook ansible/playbook.yaml \
+                            -i "${APP_IP}," \
+                            -e "ansible_host=${APP_IP} ansible_user=ubuntu"
+                        '''
                     }
                 }
             }
@@ -109,101 +118,42 @@ pipeline {
         stage('Build and push Docker image') {
             steps {
                 script {
-                    def imageTag = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                    env.IMAGE_TAG = imageTag // Tag the System Under Test (SUT) image with the commit SHA
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse --short=7 HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
 
-                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        dir("app") {
-                            sh '''#!/bin/bash
-                                set -e
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    dir("app") {
+                        sh '''#!/bin/bash
+                          set -euo pipefail
 
-                                echo "$DOCKER_PASSWORD" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
+                          echo "$DOCKER_PASSWORD" | docker login "$DOCKER_REGISTRY" \
+                            -u "$DOCKER_USERNAME" --password-stdin
 
-                                docker info >/dev/null 2>&1
+                          docker build -t ecommerce-app:${IMAGE_TAG} .
+                          docker tag ecommerce-app:${IMAGE_TAG} \
+                            ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${IMAGE_TAG}
 
-                                docker build -t ecommerce-app:"$IMAGE_TAG" .
-                                docker tag ecommerce-app:"$IMAGE_TAG" "$DOCKER_REGISTRY"/rodybothe2/ecommerce-app:"$IMAGE_TAG"
-
-                                docker push "$DOCKER_REGISTRY"/rodybothe2/ecommerce-app:"$IMAGE_TAG"
-                            '''
-                        }
+                          docker push ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${IMAGE_TAG}
+                        '''
                     }
                 }
             }
         }
 
-        // stage('Start application stack') {
-        //     steps {
-        //         dir("pipelines/application") {
-        //             sh 'docker compose up -d'
-        //         }
-        //     }
-        // }
-
-        // stage('Build Rest assured image') {
-        //     steps {
-        //         dir("pipelines/rest-assured") {
-        //             sh "docker build -t ${REST_TEST_IMAGE} ."
-        //         }
-        //     }
-        // }
-
-        // stage('Run integration Tests') {
-        //     steps {
-        //         script {
-        //             testExecutor.runTestsAndCollectAllure(
-        //                     container: 'rest-tests-integration',
-        //                     testSelector: 'IntegrationTest',
-        //                     resultsDir: 'allure-results/integration',
-        //                     network: APP_NETWORK,
-        //                     image: REST_TEST_IMAGE
-        //             )
-        //         }
-        //     }
-        // }
-
-        // stage('Run e2e tests') {
-        //     steps {
-        //         script {
-        //             testExecutor.runTestsAndCollectAllure(
-        //                     container: 'rest-tests-e2e',
-        //                     testSelector: 'e2eTest',
-        //                     resultsDir: 'allure-results/e2e',
-        //                     network: APP_NETWORK,
-        //                     image: REST_TEST_IMAGE
-        //             )
-        //         }
-        //     }
-        // }
-
-        // stage('Publish Allure report') {
-        //     steps {
-        //         archiveArtifacts artifacts: 'allure-results/**', fingerprint: true
-
-        //         allure(
-        //                 includeProperties: false,
-        //                 jdk: '',
-        //                 results: [
-        //                         [path: 'allure-results/integration'],
-        //                         [path: 'allure-results/e2e']
-        //                 ]
-        //         )
-        //     }
-        // }
-
-        // stage('Send Slack notification') {
-        //     steps {
-        //         withCredentials([string(credentialsId: 'SLACK_WEBHOOK', variable: 'SLACK_WEBHOOK_URL')]) {
-        //             dir('pipelines/scripts') {
-        //                 sh '''
-        //                   export SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL"
-        //                   export ALLURE_REPORT_DIR="${ALLURE_REPORT}"
-        //                   ./slack.sh
-        //                 '''
-        //             }
-        //         }
-        //     }
-        }
+        // Future stages intentionally commented out
+        // Start application stack
+        // Run tests
+        // Publish Allure
+        // Notifications
     }
 
     post {
@@ -211,7 +161,7 @@ pipeline {
             archiveArtifacts artifacts: 'allure-results/**, allure-report/**', fingerprint: true
 
             dir("pipelines/application") {
-                sh 'docker compose down -v'
+                sh 'docker compose down -v || true'
             }
         }
 
@@ -219,4 +169,4 @@ pipeline {
             echo "Pipeline failed"
         }
     }
-// }
+}
