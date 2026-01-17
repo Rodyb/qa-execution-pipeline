@@ -28,6 +28,37 @@ pipeline {
                 }
             }
         }
+        stage('Preflight check') {
+    steps {
+        sh '''#!/bin/bash
+          set -e
+
+          echo "=== Preflight ==="
+          echo "User: $(whoami)"
+          echo "Node: $(hostname)"
+          echo "Workspace: $(pwd)"
+
+          command -v docker >/dev/null || {
+            echo "Docker CLI not found"; exit 1;
+          }
+
+          docker ps >/dev/null || {
+            echo "Docker not usable by this process"; exit 1;
+          }
+
+          command -v terraform >/dev/null || {
+            echo "Terraform not found"; exit 1;
+          }
+
+          command -v ansible-playbook >/dev/null || {
+            echo "Ansible not found"; exit 1;
+          }
+
+          echo "Preflight OK"
+        '''
+    }
+}
+
         stage('Provision EC2 with Terraform') {
             steps {
                 script {
