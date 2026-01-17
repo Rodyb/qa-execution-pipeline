@@ -36,19 +36,10 @@ pipeline {
 
                         sh 'terraform init -upgrade'
 
-                        sh """
-                        terraform destroy -auto-approve \
-                          -var="aws_access_key=${AWS_ACCESS_KEY_ID}" \
-                          -var="aws_secret_key=${AWS_SECRET_ACCESS_KEY}" \
-                          -var="aws_region=${AWS_DEFAULT_REGION}"
-                         """
+                        sh 'terraform destroy -auto-approve '
 
-                        sh """
-                        terraform apply -auto-approve \
-                          -var="aws_access_key=${AWS_ACCESS_KEY_ID}" \
-                          -var="aws_secret_key=${AWS_SECRET_ACCESS_KEY}" \
-                          -var="aws_region=${AWS_DEFAULT_REGION}"
-                        """
+
+                        sh "terraform apply -auto-approve" 
 
                         def appIp = sh(script: "terraform output -raw app_public_ip", returnStdout: true).trim()
                         env.APP_IP = appIp
