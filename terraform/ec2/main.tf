@@ -18,7 +18,7 @@ data "aws_ami" "ubuntu" {
     values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
-  owners = ["099720109477"] 
+  owners = ["099720109477"]
 }
 
 #############################
@@ -26,8 +26,8 @@ data "aws_ami" "ubuntu" {
 #############################
 
 resource "aws_security_group" "qa_sg" {
-  name        = "qa-environment-sg"
-  description = "Allow SSH access"
+  name_prefix = "qa-environment-"
+  description = "QA ephemeral environment security group"
 
   ingress {
     description = "SSH"
@@ -36,6 +36,7 @@ resource "aws_security_group" "qa_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   ingress {
     description = "Application access"
     from_port   = 4173
@@ -43,6 +44,7 @@ resource "aws_security_group" "qa_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -62,7 +64,7 @@ resource "aws_instance" "qa_vm" {
   vpc_security_group_ids = [aws_security_group.qa_sg.id]
 
   tags = {
-    Name = "qa-environment"
+    Name = "qa-environment-${terraform.workspace}"
   }
 }
 
@@ -70,6 +72,7 @@ resource "aws_instance" "qa_vm" {
 # OUTPUT
 #############################
 
-output "vm_ip" {
-  value = aws_instance.qa_vm.public_ip
+output "app_public_ip" {
+  description = "Public IP of the QA EC2 instance"
+  value       = aws_instance.qa_vm.public_ip
 }
