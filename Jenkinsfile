@@ -62,7 +62,7 @@ pipeline {
 
                     sh 'terraform init -upgrade'
 
-                    // Demo choice: always reset infra
+                    // Demo choice: always reset infra before apply
                     sh 'terraform destroy -auto-approve || true'
                     sh 'terraform apply -auto-approve'
 
@@ -88,7 +88,9 @@ pipeline {
                     )
                 ]) {
                     sshagent(['ansible-ssh-key-aws']) {
-                        sh '''
+                        sh '''#!/bin/bash
+                          set -e
+
                           echo "Waiting for SSH..."
                           for i in {1..30}; do
                             if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ubuntu@${APP_IP} "echo SSH ready"; then
@@ -103,7 +105,8 @@ pipeline {
 
                           ansible-playbook ansible/playbook.yaml \
                             -i "${APP_IP}," \
-                            -e "ansible_host=${APP_IP} ansible_user=ubuntu"
+                            -e "ansible_host=${APP_IP} ansible_user=ubuntu" \
+                            --ssh-extra-args='-o StrictHostKeyChecking=no'
                         '''
                     }
                 }
@@ -151,28 +154,31 @@ pipeline {
                       set -euo pipefail
 
                       export IMAGE_TAG="${IMAGE_TAG}"
-                      docker compose pull || true
+
+                      docker compose pull
                       docker compose up -d
                     '''
                 }
             }
         }
 
-        // Future stages intentionally commented out
-        // Start application stack
-        // Run tests
-        // Publish Allure
-        // Notifications
+        // Future stages:
+        // - Integration tests
+        // - E2E tests
+        // - Allure publishing
+        // - Notifications
     }
 
     post {
         always {
-            dir("app") {
-                sh 'docker compose down -v || true'
-            }
-
+            // Demo cleanup: always destroy infra, never fail build
             dir("terraform/ec2") {
                 sh 'terraform destroy -auto-approve || true'
+            }
+
+            // App cleanup (best effort)
+            dir("app") {
+                sh 'docker compose down -v || true'
             }
         }
 
