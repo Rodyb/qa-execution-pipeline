@@ -155,8 +155,8 @@ pipeline {
 
                       export IMAGE_TAG="${IMAGE_TAG}"
 
-                      docker compose pull
-                      docker compose up -d
+                      docker-compose pull
+                      docker-compose up -d
                     '''
                 }
             }
