@@ -3,14 +3,9 @@ def testExecutor
 pipeline {
     agent { label 'built-in' }
 
-    tools {
-        allure 'allure'
-    }
-
     environment {
         APP_NETWORK     = "app_default"
         REST_TEST_IMAGE = "app-rest-tests"
-        ALLURE_REPORT   = "${WORKSPACE}/allure-report"
 
         AWS_ACCESS_KEY_ID     = credentials('jenkins_aws_access_key_id')
         AWS_SECRET_ACCESS_KEY = credentials('jenkins_aws_secret_access_key')
@@ -149,6 +144,20 @@ pipeline {
             }
         }
 
+        stage('Start application stack') {
+            steps {
+                dir("app") {
+                    sh '''#!/bin/bash
+                      set -euo pipefail
+
+                      export IMAGE_TAG="${IMAGE_TAG}"
+                      docker compose pull || true
+                      docker compose up -d
+                    '''
+                }
+            }
+        }
+
         // Future stages intentionally commented out
         // Start application stack
         // Run tests
@@ -158,10 +167,12 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'allure-results/**, allure-report/**', fingerprint: true
-
             dir("app") {
                 sh 'docker compose down -v || true'
+            }
+
+            dir("terraform/ec2") {
+                sh 'terraform destroy -auto-approve || true'
             }
         }
 
