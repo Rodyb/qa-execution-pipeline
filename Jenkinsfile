@@ -79,18 +79,22 @@ pipeline {
             steps {
                 script {
                     def imageTag = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                    env.IMAGE_TAG = imageTag // We need this to get the latest commit hash
+                    env.IMAGE_TAG = imageTag // Tag the System Under Test (SUT) image with the commit SHA
 
                     withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         dir("app") {
-                            sh """
-                                echo "$DOCKER_PASSWORD" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USERNAME" --password-stdin
+                            sh '''#!/bin/bash
+                                set -e
 
-                                docker build -t ecommerce-app:${env.IMAGE_TAG} .
-                                docker tag ecommerce-app:${env.IMAGE_TAG} ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${env.IMAGE_TAG}
+                                echo "$DOCKER_PASSWORD" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
 
-                                docker push ${DOCKER_REGISTRY}/rodybothe2/ecommerce-app:${env.IMAGE_TAG}
-                            """
+                                docker info >/dev/null 2>&1
+
+                                docker build -t ecommerce-app:"$IMAGE_TAG" .
+                                docker tag ecommerce-app:"$IMAGE_TAG" "$DOCKER_REGISTRY"/rodybothe2/ecommerce-app:"$IMAGE_TAG"
+
+                                docker push "$DOCKER_REGISTRY"/rodybothe2/ecommerce-app:"$IMAGE_TAG"
+                            '''
                         }
                     }
                 }
