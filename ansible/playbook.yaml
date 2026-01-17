@@ -155,7 +155,7 @@
         owner: ubuntu
         group: ubuntu
         mode: '0755'
-        
+
     - name: Ensure rsync is installed
       become: true
       apt:
@@ -194,20 +194,3 @@
         username: rodybothe2
         password: "{{ docker_password }}"
 
-- name: Start application using defined execution
-  hosts: all
-  become: false
-  vars:
-    app_dir: /home/ubuntu/app
-  tasks:
-    - name: Start application via Docker Compose
-      command: docker compose up -d
-      args:
-        chdir: "{{ app_dir }}"
-      register: compose_up
-
-    - name: Assert application started
-      assert:
-        that:
-          - compose_up.rc == 0
-        fail_msg: "Application did not start — system did not start as defined"
