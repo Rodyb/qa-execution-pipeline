@@ -67,7 +67,7 @@ pipeline {
 
                                 ansible-playbook ansible/playbook.yaml \
                                     -i '${env.APP_IP},' \
-                                    -e "ansible_host=${env.APP_IP} ansible_user=ubuntu docker_password=${DOCKER_PASSWORD} nexus_host=${NEXUS_URL}"
+                                    -e "ansible_host=${env.APP_IP} ansible_user=ubuntu docker_password=${DOCKER_PASSWORD}"
                             """
                         }
                     }
